@@ -1,0 +1,10 @@
+{
+  "access_token": "aa",
+  "refresh_token": null,
+  "last_mined_batch": null,
+  "note_type": null,
+  "word_export": null,
+  "reading_export": null,
+  "sentence_export": null,
+  "deck": null
+}
