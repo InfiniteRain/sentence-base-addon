@@ -1,10 +1,10 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+import requests
+from PyQt5 import QtCore, QtWidgets
 from aqt import mw
-from aqt.utils import showInfo
+from aqt.utils import showInfo, showWarning
 from aqt.qt import *
-import urllib.request
-import json
-from . import API_URI
+from .globals import API_URI
+
 
 class Ui_SettingsDialog(object):
     def __init__(self):
@@ -19,7 +19,7 @@ class Ui_SettingsDialog(object):
                 self.combo_box_note_type.setCurrentIndex(index + 1)
         qconnect(
             self.combo_box_note_type.currentIndexChanged,
-            lambda: self.onNoteChanged(),
+            lambda: self.refreshExportFields(),
         )
 
         self.combo_box_deck.addItem("None", {"id": None})
@@ -29,9 +29,9 @@ class Ui_SettingsDialog(object):
             if self.current_config["deck"] == deck.id:
                 self.combo_box_deck.setCurrentIndex(index + 1)
 
-        self.onNoteChanged()
+        self.refreshExportFields()
 
-    def onNoteChanged(self):
+    def refreshExportFields(self):
         note_type_id = self.combo_box_note_type.currentData()["id"]
         combo_entries = [
             (self.combo_box_word, "word_export"),
@@ -56,6 +56,21 @@ class Ui_SettingsDialog(object):
                 if field["ord"] == self.current_config[combo_config_key]:
                     combo_box.setCurrentIndex(index + 1)
 
+    def refreshLoginFields(self):
+        refresh_token = self.current_config["refresh_token"]
+
+        self.line_edit_email.setText("")
+        self.line_edit_password.setText("")
+
+        if refresh_token is None:
+            self.line_edit_email.setDisabled(False)
+            self.line_edit_password.setDisabled(False)
+            self.button_login.setText("Login")
+            return
+
+        self.line_edit_email.setDisabled(True)
+        self.line_edit_password.setDisabled(True)
+        self.button_login.setText("Logout")
 
     def onAccept(self, SettingsDialog):
         self.current_config["note_type"] = self.combo_box_note_type.currentData()["id"]
@@ -67,14 +82,35 @@ class Ui_SettingsDialog(object):
         mw.addonManager.writeConfig(__name__, self.current_config)
         SettingsDialog.close()
 
+    def onLoginOrLogout(self):
+        refresh_token = self.current_config["refresh_token"]
 
-    def onLogin(self):
+        if refresh_token is not None:
+            self.current_config["access_token"] = None
+            self.current_config["refresh_token"] = None
+            mw.addonManager.writeConfig(__name__, self.current_config)
+            showInfo("Logged out")
+            self.refreshLoginFields()
+            return
+
         body = {
             "email": self.line_edit_email.text(),
             "password": self.line_edit_password.text()
         }
-        # url =
+        url = "%s/auth/login" % API_URI
 
+        response = requests.post(url, json=body)
+        response_json = response.json()
+
+        if response_json["status"] != "success":
+            showWarning("Login failed.")
+            return
+
+        self.current_config["access_token"] = response_json["data"]["access_token"]
+        self.current_config["refresh_token"] = response_json["data"]["refresh_token"]
+        mw.addonManager.writeConfig(__name__, self.current_config)
+        showInfo("Login succeeded.")
+        self.refreshLoginFields()
 
     def setupUi(self, SettingsDialog):
         SettingsDialog.setObjectName("SettingsDialog")
@@ -102,12 +138,13 @@ class Ui_SettingsDialog(object):
         self.line_edit_password = QtWidgets.QLineEdit(SettingsDialog)
         self.line_edit_password.setGeometry(QtCore.QRect(140, 50, 141, 21))
         self.line_edit_password.setObjectName("line_edit_password")
+        self.line_edit_password.setEchoMode(QLineEdit.Password)
         self.button_login = QtWidgets.QPushButton(SettingsDialog)
         self.button_login.setGeometry(QtCore.QRect(20, 80, 261, 32))
         self.button_login.setObjectName("button_login")
         qconnect(
             self.button_login.pressed,
-            lambda: self.onLogin()
+            lambda: self.onLoginOrLogout()
         )
 
         self.combo_box_note_type = QtWidgets.QComboBox(SettingsDialog)
@@ -151,6 +188,7 @@ class Ui_SettingsDialog(object):
         self.button_box_action.rejected.connect(SettingsDialog.reject)
         QtCore.QMetaObject.connectSlotsByName(SettingsDialog)
 
+        self.refreshLoginFields()
         self.populateComboBoxes()
 
     def retranslateUi(self, SettingsDialog):

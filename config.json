@@ -1,5 +1,5 @@
 {
-  "access_token": "aa",
+  "access_token": null,
   "refresh_token": null,
   "last_mined_batch": null,
   "note_type": null,
