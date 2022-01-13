@@ -3,7 +3,7 @@ from PyQt5 import QtCore, QtWidgets
 from aqt import mw
 from aqt.utils import showInfo, showWarning
 from aqt.qt import *
-from .globals import API_URI
+from .globals import WEB_API_KEY, SIGN_IN_URI
 
 
 class Ui_SettingsDialog(object):
@@ -88,6 +88,7 @@ class Ui_SettingsDialog(object):
         if refresh_token is not None:
             self.current_config["access_token"] = None
             self.current_config["refresh_token"] = None
+            self.current_config["user_uid"] = None
             mw.addonManager.writeConfig(__name__, self.current_config)
             showInfo("Logged out")
             self.refreshLoginFields()
@@ -95,19 +96,21 @@ class Ui_SettingsDialog(object):
 
         body = {
             "email": self.line_edit_email.text(),
-            "password": self.line_edit_password.text()
+            "password": self.line_edit_password.text(),
+            "returnSecureToken": True
         }
-        url = "%s/auth/login" % API_URI
+        url = "%s?key=%s" % (SIGN_IN_URI, WEB_API_KEY)
 
-        response = requests.post(url, json=body)
+        response = requests.post(url, data=body)
         response_json = response.json()
 
-        if response_json["status"] != "success":
+        if response.status_code != 200:
             showWarning("Login failed.")
             return
 
-        self.current_config["access_token"] = response_json["data"]["access_token"]
-        self.current_config["refresh_token"] = response_json["data"]["refresh_token"]
+        self.current_config["access_token"] = response_json["idToken"]
+        self.current_config["refresh_token"] = response_json["refreshToken"]
+        self.current_config["user_uid"] = response_json["localId"]
         mw.addonManager.writeConfig(__name__, self.current_config)
         showInfo("Login succeeded.")
         self.refreshLoginFields()
