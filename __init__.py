@@ -7,7 +7,7 @@ import json
 import time
 
 from .SettingsDialog import Ui_SettingsDialog
-from .globals import WEB_API_KEY, SIGN_IN_URI, QUERY_URI
+from .globals import WEB_API_KEY, SIGN_IN_URI, QUERY_URI, REFRESH_URI
 
 
 def openSettings() -> None:
